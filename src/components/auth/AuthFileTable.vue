@@ -427,7 +427,7 @@ const getQuotaItems = (fileName: string): { name: string; percent: number | null
   const q = quotaStore.getQuotaStatus(quotaKey.file(fileName))
   if (!q || q.status !== 'success') return []
   if (q.type === 'antigravity') {
-    return (q.data?.groups || []).map((g: any) => ({ name: g.name, percent: g.percent, resetTime: g.resetTime }))
+    return (q.data?.groups || []).filter((g: any) => !g.hideInTable).map((g: any) => ({ name: g.name, percent: g.percent, resetTime: g.resetTime }))
   }
   if (q.type === 'gemini-cli') {
     return (q.data?.buckets || []).map((b: any) => ({ name: b.modelId, percent: b.percent, resetTime: b.resetTime }))

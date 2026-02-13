@@ -276,6 +276,7 @@ export const antigravityQuota = {
         identifiers: [
           'claude-sonnet-4-5-thinking',
           'claude-opus-4-5-thinking',
+          'claude-opus-4-6-thinking',
           'claude-sonnet-4-5',
           'gpt-oss-120b-medium'
         ]
@@ -286,19 +287,25 @@ export const antigravityQuota = {
         identifiers: ['gemini-3-pro-high', 'gemini-3-pro-low']
       },
       {
+        id: 'gemini-2-5-pro',
+        label: 'Gemini 2.5 Pro',
+        identifiers: ['gemini-2.5-pro']
+      },
+      {
         id: 'gemini-2-5-flash',
         label: 'Gemini 2.5 Flash',
         identifiers: ['gemini-2.5-flash', 'gemini-2.5-flash-thinking']
       },
       {
-        id: 'gemini-2-5-flash-lite',
-        label: 'Gemini 2.5 Flash Lite',
-        identifiers: ['gemini-2.5-flash-lite']
-      },
-      {
         id: 'gemini-2-5-cu',
         label: 'Gemini 2.5 CU',
         identifiers: ['rev19-uic3-1p']
+      },
+      {
+        id: 'gemini-2-5-flash-lite',
+        label: 'Gemini 2.5 Flash Lite',
+        identifiers: ['gemini-2.5-flash-lite'],
+        hideInTable: true
       },
       {
         id: 'gemini-3-flash',
@@ -375,7 +382,8 @@ export const antigravityQuota = {
         remaining: percent,
         used: 100 - percent,
         total: 100,
-        resetTime
+        resetTime,
+        hideInTable: !!(groupDef as any).hideInTable
       })
     }
 
@@ -522,8 +530,8 @@ export const codexQuota = {
       return Number.isFinite(num) ? num : null
     }
 
-    const classifyWindows = (limitInfo: any): { fiveHour: any; weekly: any } => {
-      if (!limitInfo) return { fiveHour: null, weekly: null }
+    const classifyWindows = (limitInfo: any): { fiveHour: any; weekly: any; extra: any[] } => {
+      if (!limitInfo) return { fiveHour: null, weekly: null, extra: [] }
 
       const rawWindows = [
         limitInfo.primary_window ?? limitInfo.primaryWindow ?? null,
@@ -532,6 +540,7 @@ export const codexQuota = {
 
       let fiveHour: any = null
       let weekly: any = null
+      const unmatched: any[] = []
 
       for (const window of rawWindows) {
         if (!window) continue
@@ -540,16 +549,18 @@ export const codexQuota = {
           fiveHour = window
         } else if (seconds === WEEK_SECONDS && !weekly) {
           weekly = window
+        } else {
+          unmatched.push(window)
         }
       }
 
-      // Fallback: if classification by seconds failed, use positional order
-      if (!fiveHour && !weekly) {
-        fiveHour = rawWindows[0]
-        weekly = rawWindows[1]
+      // Fallback: if no window was classified, use positional order
+      if (!fiveHour && !weekly && unmatched.length > 0) {
+        fiveHour = unmatched.shift()!
+        if (unmatched.length > 0) weekly = unmatched.shift()!
       }
 
-      return { fiveHour, weekly }
+      return { fiveHour, weekly, extra: unmatched }
     }
 
     const addWindow = (window: any, label: string, limitInfo: any) => {
@@ -596,12 +607,16 @@ export const codexQuota = {
     const rateWindows = classifyWindows(rateLimit)
     addWindow(rateWindows.fiveHour, '5h', rateLimit)
     addWindow(rateWindows.weekly, 'Weekly', rateLimit)
+    rateWindows.extra.forEach((w, i) => addWindow(w, `Window ${i + 1}`, rateLimit))
 
     const crWindows = classifyWindows(codeReviewLimit)
     addWindow(crWindows.fiveHour, 'Review 5h', codeReviewLimit)
     addWindow(crWindows.weekly, 'Review Weekly', codeReviewLimit)
+    crWindows.extra.forEach((w, i) => addWindow(w, `Review ${i + 1}`, codeReviewLimit))
 
-    return { planType, limits }
+    const campaignId = data.promo?.campaign_id || null
+
+    return { planType, limits, campaignId }
   }
 }
 

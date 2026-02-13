@@ -128,37 +128,29 @@ function formatUpdatedAt(timestamp?: number | null) {
       </div>
 
       <!-- Antigravity Quota -->
-      <div v-else-if="quotaResult?.type === 'antigravity'" class="space-y-4">
+      <div v-else-if="quotaResult?.type === 'antigravity'" class="space-y-3">
         <div v-if="quotaResult.data.groups?.length > 0">
-          <h3 class="text-sm font-medium mb-3">模型组配额</h3>
-          <div class="space-y-4">
+          <h3 class="text-sm font-medium mb-2">模型组配额</h3>
+          <div class="space-y-1.5">
             <div
               v-for="group in quotaResult.data.groups"
               :key="group.name"
-              class="space-y-2 p-3 rounded-lg bg-gray-50"
+              class="flex items-center gap-3 px-3 py-1.5 rounded-lg bg-gray-50"
             >
-              <div class="flex items-center justify-between text-sm">
-                <span class="font-medium">{{ group.name }}</span>
-                <div class="flex items-center gap-2">
-                  <span :class="getTextColorClass(group.percent)" class="font-semibold">
-                    {{ group.percent }}%
-                  </span>
-                  <span v-if="group.resetTime" class="text-xs text-gray-500">
-                    重置: {{ formatResetTime(group.resetTime) }}
-                  </span>
-                </div>
-              </div>
-              <div class="relative h-4 w-full overflow-hidden rounded-full bg-gray-200">
+              <span class="text-xs font-medium w-32 shrink-0 truncate">{{ group.name }}</span>
+              <div class="relative h-2 flex-1 overflow-hidden rounded-full bg-gray-200">
                 <div
                   :class="getProgressColorClass(group.percent)"
                   class="h-full transition-all"
                   :style="{ width: `${group.percent}%` }"
                 />
               </div>
-              <div class="flex justify-between text-xs text-gray-500">
-                <span>已用: {{ group.used }}%</span>
-                <span>剩余: {{ group.remaining }}%</span>
-              </div>
+              <span :class="getTextColorClass(group.percent)" class="text-xs font-semibold w-10 text-right shrink-0">
+                {{ group.percent }}%
+              </span>
+              <span v-if="group.resetTime" class="text-[11px] text-gray-400 w-24 text-right shrink-0">
+                {{ formatResetTime(group.resetTime) }}
+              </span>
             </div>
           </div>
         </div>
@@ -168,37 +160,29 @@ function formatUpdatedAt(timestamp?: number | null) {
       </div>
 
       <!-- Gemini CLI Quota -->
-      <div v-else-if="quotaResult?.type === 'gemini-cli'" class="space-y-4">
+      <div v-else-if="quotaResult?.type === 'gemini-cli'" class="space-y-3">
         <div v-if="quotaResult.data.buckets?.length > 0">
-          <h3 class="text-sm font-medium mb-3">模型配额</h3>
-          <div class="space-y-4">
+          <h3 class="text-sm font-medium mb-2">模型配额</h3>
+          <div class="space-y-1.5">
             <div
               v-for="bucket in quotaResult.data.buckets"
               :key="bucket.modelId"
-              class="space-y-2 p-3 rounded-lg bg-gray-50"
+              class="flex items-center gap-3 px-3 py-1.5 rounded-lg bg-gray-50"
             >
-              <div class="flex items-center justify-between text-sm">
-                <span class="font-medium">{{ bucket.modelId }}</span>
-                <div class="flex items-center gap-2">
-                  <span :class="getTextColorClass(bucket.percent)" class="font-semibold">
-                    {{ bucket.percent }}%
-                  </span>
-                  <span v-if="bucket.resetTime" class="text-xs text-gray-500">
-                    重置: {{ formatResetTime(bucket.resetTime) }}
-                  </span>
-                </div>
-              </div>
-              <div class="relative h-4 w-full overflow-hidden rounded-full bg-gray-200">
+              <span class="text-xs font-medium w-32 shrink-0 truncate">{{ bucket.modelId }}</span>
+              <div class="relative h-2 flex-1 overflow-hidden rounded-full bg-gray-200">
                 <div
                   :class="getProgressColorClass(bucket.percent)"
                   class="h-full transition-all"
                   :style="{ width: `${bucket.percent}%` }"
                 />
               </div>
-              <div class="flex justify-between text-xs text-gray-500">
-                <span>已用: {{ bucket.used }}%</span>
-                <span>剩余: {{ bucket.remaining }}%</span>
-              </div>
+              <span :class="getTextColorClass(bucket.percent)" class="text-xs font-semibold w-10 text-right shrink-0">
+                {{ bucket.percent }}%
+              </span>
+              <span v-if="bucket.resetTime" class="text-[11px] text-gray-400 w-24 text-right shrink-0">
+                {{ formatResetTime(bucket.resetTime) }}
+              </span>
             </div>
           </div>
         </div>
@@ -208,50 +192,42 @@ function formatUpdatedAt(timestamp?: number | null) {
       </div>
 
       <!-- Codex Quota -->
-      <div v-else-if="quotaResult?.type === 'codex'" class="space-y-4">
-        <div v-if="quotaResult.data.planType" class="text-sm p-3 rounded-lg bg-gray-50">
+      <div v-else-if="quotaResult?.type === 'codex'" class="space-y-3">
+        <div v-if="quotaResult.data.planType" class="text-sm px-3 py-1.5 rounded-lg bg-gray-50">
           <span class="font-medium">计划类型:</span>
           <span class="ml-2">{{ quotaResult.data.planType }}</span>
+          <span v-if="quotaResult.data.campaignId" class="ml-3 text-xs text-gray-500">
+            活动: {{ quotaResult.data.campaignId }}
+          </span>
         </div>
 
         <div v-if="quotaResult.data.limits?.length > 0">
-          <h3 class="text-sm font-medium mb-3">速率限制</h3>
-          <div class="space-y-4">
+          <h3 class="text-sm font-medium mb-2">速率限制</h3>
+          <div class="space-y-1.5">
             <div
               v-for="limit in quotaResult.data.limits"
               :key="limit.model"
-              class="space-y-2 p-3 rounded-lg bg-gray-50"
+              class="flex items-center gap-3 px-3 py-1.5 rounded-lg bg-gray-50"
             >
-              <div class="flex items-center justify-between text-sm">
-                <span class="font-medium">{{ limit.model }}</span>
-                <div class="flex items-center gap-2">
-                  <template v-if="limit.percent !== null">
-                    <span :class="getTextColorClass(limit.percent)" class="font-semibold">
-                      {{ limit.percent }}%
-                    </span>
-                  </template>
-                  <span v-else class="text-xs text-gray-400">未知</span>
-                  <span v-if="limit.resetTime" class="text-xs text-gray-500">
-                    重置: {{ formatResetTime(limit.resetTime) }}
-                  </span>
-                </div>
-              </div>
+              <span class="text-xs font-medium w-24 shrink-0">{{ limit.model }}</span>
               <template v-if="limit.percent !== null">
-                <div class="relative h-4 w-full overflow-hidden rounded-full bg-gray-200">
+                <div class="relative h-2 flex-1 overflow-hidden rounded-full bg-gray-200">
                   <div
                     :class="getProgressColorClass(limit.percent)"
                     class="h-full transition-all"
                     :style="{ width: `${limit.percent}%` }"
                   />
                 </div>
-                <div class="flex justify-between text-xs text-gray-500">
-                  <span>已用: {{ limit.used }}%</span>
-                  <span>剩余: {{ limit.remaining }}%</span>
-                </div>
+                <span :class="getTextColorClass(limit.percent)" class="text-xs font-semibold w-10 text-right shrink-0">
+                  {{ limit.percent }}%
+                </span>
               </template>
-              <div v-else class="text-xs text-gray-400">
-                无法获取使用量信息
-              </div>
+              <template v-else>
+                <div class="flex-1 text-xs text-gray-400">无法获取</div>
+              </template>
+              <span v-if="limit.resetTime" class="text-[11px] text-gray-400 w-24 text-right shrink-0">
+                {{ formatResetTime(limit.resetTime) }}
+              </span>
             </div>
           </div>
         </div>
