@@ -8,6 +8,7 @@ import { useQuotaStore } from './quota'
 
 export const useAuthStore = defineStore('auth', () => {
   const isConnected = ref(false)
+  const restoring = ref(false)
   const apiUrl = ref(localStorage.getItem('apiUrl') || '')
   const managementKey = ref(localStorage.getItem('managementKey') || '')
 
@@ -54,18 +55,24 @@ export const useAuthStore = defineStore('auth', () => {
 
   // Restore connection from local storage
   if (apiUrl.value && managementKey.value) {
-    connect(apiUrl.value, managementKey.value).catch(() => {
-      console.warn('Failed to restore connection')
-      // Clear stale credentials
-      localStorage.removeItem('apiUrl')
-      localStorage.removeItem('managementKey')
-      apiUrl.value = ''
-      managementKey.value = ''
-    })
+    restoring.value = true
+    connect(apiUrl.value, managementKey.value)
+      .catch(() => {
+        console.warn('Failed to restore connection')
+        // Clear stale credentials
+        localStorage.removeItem('apiUrl')
+        localStorage.removeItem('managementKey')
+        apiUrl.value = ''
+        managementKey.value = ''
+      })
+      .finally(() => {
+        restoring.value = false
+      })
   }
 
   return {
     isConnected,
+    restoring,
     apiUrl,
     managementKey,
     connect,

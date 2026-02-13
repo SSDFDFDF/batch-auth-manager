@@ -24,16 +24,22 @@ const authStore = useAuthStore()
 const quotaStore = useQuotaStore()
 const activeTab = ref('files')
 
-const showConnectDialog = ref(!authStore.isConnected)
+const showConnectDialog = ref(!authStore.isConnected && !authStore.restoring)
 const connecting = ref(false)
 const connectForm = reactive({
   apiUrl: authStore.apiUrl || 'http://localhost:8317',
   managementKey: authStore.managementKey || ''
 })
 
-watch(authStore.isConnected, (connected) => {
+watch(() => authStore.isConnected, (connected) => {
   if (connected) {
     showConnectDialog.value = false
+  }
+})
+
+watch(() => authStore.restoring, (restoring) => {
+  if (!restoring && !authStore.isConnected) {
+    showConnectDialog.value = true
   }
 })
 
@@ -167,6 +173,11 @@ const handleDisconnect = async () => {
         <SettingsPage v-else-if="activeTab === 'settings'" />
       </div>
       
+      <div v-else-if="authStore.restoring" class="flex h-[400px] flex-col items-center justify-center rounded-lg border border-dashed text-center animate-in fade-in-50">
+        <Loader2 class="h-8 w-8 animate-spin text-muted-foreground" />
+        <p class="mt-4 text-sm text-muted-foreground">正在恢复连接...</p>
+      </div>
+
       <div v-else class="flex h-[400px] flex-col items-center justify-center rounded-lg border border-dashed text-center animate-in fade-in-50">
         <div class="rounded-full bg-muted p-3">
           <Server class="h-6 w-6 text-muted-foreground" />
