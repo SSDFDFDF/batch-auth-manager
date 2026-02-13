@@ -22,7 +22,7 @@ export function useQuotaLoader() {
   const getCachedSuccess = (key: string): QuotaResult | null => {
     const cached = quotaStore.getQuotaStatus(key)
     if (cached?.status === 'success' && !quotaStore.isExpired(key)) {
-      return { type: cached.type, data: cached.data }
+      return { type: cached.type ?? '', data: cached.data }
     }
     return null
   }

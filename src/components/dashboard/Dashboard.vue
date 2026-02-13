@@ -381,14 +381,14 @@ const dailyCombined = computed(() => ({
     {
       name: '请求数',
       data: requestsData.value.values,
-      type: 'bar',
+      type: 'bar' as const,
       color: '#3b82f6',
       yAxisIndex: 0
     },
     {
       name: 'Token 消耗',
       data: tokensData.value.values,
-      type: 'bar',
+      type: 'bar' as const,
       color: '#f59e0b',
       yAxisIndex: 1
     }
