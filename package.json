@@ -1,0 +1,31 @@
+{
+  "name": "batch-auth-manager",
+  "version": "1.0.0",
+  "description": "批量认证文件管理前端",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "clsx": "^2.1.1",
+    "echarts": "^6.0.0",
+    "lucide-vue-next": "^0.563.0",
+    "pinia": "^2.1.0",
+    "tailwind-merge": "^3.4.0",
+    "vue": "^3.4.0",
+    "vue-echarts": "^8.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.2",
+    "@vitejs/plugin-vue": "^5.0.0",
+    "autoprefixer": "^10.4.24",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.9.3",
+    "vite": "^5.0.0",
+    "vue-tsc": "^3.2.4"
+  }
+}
