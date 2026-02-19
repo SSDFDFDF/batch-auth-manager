@@ -45,6 +45,7 @@ import { useUsageStore } from '../../stores/usage'
 import Button from '../ui/Button.vue'
 import Input from '../ui/Input.vue'
 import Badge from '../ui/badge/Badge.vue'
+import Progress from '../ui/progress/Progress.vue'
 import {
   Table,
   TableHeader,
@@ -158,11 +159,45 @@ const editingFile = ref<any>(null)
 const editContent = ref('')
 const quotaFile = ref<any>(null)
 const statusDialogFile = ref<any>(null)
-const uploadFile = ref<File | null>(null)
+
+type UploadStatus = 'pending' | 'uploading' | 'success' | 'error'
+interface UploadItem {
+  file: File
+  status: UploadStatus
+  error?: string
+}
+
+const uploadItems = ref<UploadItem[]>([])
+const uploadInputKey = ref(0)
+const DEFAULT_UPLOAD_CONCURRENCY = 3
+const uploadConcurrency = ref<number>(DEFAULT_UPLOAD_CONCURRENCY)
 
 // Computed
 const hasQuotaSupportedFiles = computed(() => {
   return selectedFiles.value.some((file: any) => supportsQuota(file.type))
+})
+
+const uploadStats = computed(() => {
+  let success = 0
+  let failed = 0
+  let uploadingCount = 0
+  for (const item of uploadItems.value) {
+    if (item.status === 'success') success++
+    else if (item.status === 'error') failed++
+    else if (item.status === 'uploading') uploadingCount++
+  }
+  const total = uploadItems.value.length
+  const processed = success + failed
+  return { total, success, failed, processed, uploading: uploadingCount }
+})
+
+const uploadPercent = computed(() => {
+  if (!uploadStats.value.total) return 0
+  return Math.round((uploadStats.value.processed / uploadStats.value.total) * 100)
+})
+
+const hasPendingUploads = computed(() => {
+  return uploadItems.value.some(item => item.status === 'pending' || item.status === 'error')
 })
 
 // Methods
@@ -221,23 +256,131 @@ const handleRemoveSelectedFile = (name: string) => {
 
 const handleUploadChange = (event: Event) => {
   const target = event.target as HTMLInputElement
-  if (target.files && target.files.length > 0) {
-    uploadFile.value = target.files[0]
+  const files = target.files ? Array.from(target.files) : []
+  if (files.length === 0) {
+    uploadItems.value = []
+    return
+  }
+  const validFiles = files.filter(file => file.name.toLowerCase().endsWith('.json'))
+  const ignored = files.length - validFiles.length
+  if (ignored > 0) {
+    notificationStore.warning(`已忽略 ${ignored} 个非 JSON 文件`)
+  }
+  uploadItems.value = validFiles.map(file => ({
+    file,
+    status: 'pending' as UploadStatus
+  }))
+  uploadInputKey.value += 1
+}
+
+const resetUploadSelection = () => {
+  uploadItems.value = []
+  uploadInputKey.value += 1
+}
+
+const handleCloseUploadDialog = () => {
+  if (uploadLoading.value) return
+  showUploadDialog.value = false
+  resetUploadSelection()
+}
+
+const handleUploadDialogToggle = (open: boolean) => {
+  if (!open && uploadLoading.value) return
+  showUploadDialog.value = open
+  if (!open) resetUploadSelection()
+}
+
+const handleRemoveUploadItem = (index: number) => {
+  if (uploadLoading.value) return
+  uploadItems.value.splice(index, 1)
+}
+
+const getUploadStatusLabel = (status: UploadStatus) => {
+  switch (status) {
+    case 'pending':
+      return '待上传'
+    case 'uploading':
+      return '上传中'
+    case 'success':
+      return '成功'
+    case 'error':
+      return '失败'
+    default:
+      return '未知'
   }
 }
 
+const getUploadStatusVariant = (status: UploadStatus) => {
+  if (status === 'success') return 'default'
+  if (status === 'error') return 'destructive'
+  if (status === 'uploading') return 'secondary'
+  return 'outline'
+}
+
+const normalizeUploadConcurrency = () => {
+  const value = Number(uploadConcurrency.value)
+  if (!Number.isFinite(value)) return 1
+  return Math.min(10, Math.max(1, Math.floor(value)))
+}
+
+const uploadSingleFile = async (item: UploadItem) => {
+  item.status = 'uploading'
+  item.error = undefined
+  try {
+    await authFilesApi.upload(item.file)
+    quotaStore.clearQuota(quotaKey.file(item.file.name))
+    item.status = 'success'
+    return true
+  } catch (error: any) {
+    item.status = 'error'
+    item.error = error.message || '上传失败'
+    return false
+  }
+}
+
+const runUploadQueue = async (items: UploadItem[], limit: number) => {
+  let index = 0
+  let success = 0
+  let failed = 0
+  const workerCount = Math.min(limit, items.length)
+  const workers = Array.from({ length: workerCount }, async () => {
+    while (true) {
+      const currentIndex = index++
+      if (currentIndex >= items.length) break
+      const ok = await uploadSingleFile(items[currentIndex])
+      if (ok) success++
+      else failed++
+    }
+  })
+  await Promise.all(workers)
+  return { success, failed }
+}
+
 const handleUpload = async () => {
-  if (!uploadFile.value) {
+  if (!uploadItems.value.length) {
     notificationStore.warning('请选择文件')
+    return
+  }
+  const queue = uploadItems.value.filter(item => item.status !== 'success')
+  if (!queue.length) {
+    notificationStore.info('没有需要上传的文件')
     return
   }
   uploadLoading.value = true
   try {
-    await authFilesApi.upload(uploadFile.value)
-    quotaStore.clearQuota(quotaKey.file(uploadFile.value.name))
-    showUploadDialog.value = false
-    uploadFile.value = null
-    await loadAuthFiles()
+    const concurrency = normalizeUploadConcurrency()
+    uploadConcurrency.value = concurrency
+    const { success, failed } = await runUploadQueue(queue, concurrency)
+    if (success > 0) {
+      await loadAuthFiles()
+    }
+    if (failed === 0) {
+      notificationStore.success(`已上传 ${success} 个文件`)
+      showUploadDialog.value = false
+      resetUploadSelection()
+    } else {
+      notificationStore.error(`上传完成：成功 ${success} 个，失败 ${failed} 个`)
+    }
   } catch (error: any) {
     notificationStore.error('上传失败: ' + error.message)
   } finally {
@@ -910,15 +1053,55 @@ watch(authFiles, (files) => {
     </div>
 
     <!-- Upload Dialog -->
-    <Dialog :open="showUploadDialog" @update:open="showUploadDialog = $event" title="上传文件" description="上传 JSON 格式的认证文件。">
+    <Dialog :open="showUploadDialog" @update:open="handleUploadDialogToggle" title="上传文件" description="上传 JSON 格式的认证文件。">
       <div class="grid gap-4 py-4">
         <div class="grid w-full max-w-sm items-center gap-1.5">
-          <Input id="file" type="file" accept=".json" @change="handleUploadChange" />
+          <Input :key="uploadInputKey" id="file" type="file" accept=".json" multiple :disabled="uploadLoading" @change="handleUploadChange" />
+          <div class="text-xs text-muted-foreground">可多选 JSON 文件。</div>
+        </div>
+        <div class="flex items-center gap-2 text-sm">
+          <span class="text-muted-foreground">并发数</span>
+          <Input v-model="uploadConcurrency" type="number" min="1" max="10" step="1" class="h-8 w-20" :disabled="uploadLoading" />
+          <span class="text-xs text-muted-foreground">1-10</span>
+        </div>
+        <div v-if="uploadItems.length > 0" class="space-y-2">
+          <div class="flex items-center justify-between text-xs text-muted-foreground">
+            <span>已选择 {{ uploadItems.length }} 个文件</span>
+            <button type="button" class="text-primary hover:underline" @click="resetUploadSelection" :disabled="uploadLoading">清空</button>
+          </div>
+          <div class="max-h-40 overflow-y-auto rounded-md border p-2 space-y-1">
+            <div v-for="(item, index) in uploadItems" :key="`${item.file.name}-${index}`" class="flex items-center gap-2">
+              <div class="min-w-0 flex-1 truncate text-sm" :title="item.file.name">{{ item.file.name }}</div>
+              <div class="flex items-center gap-1">
+                <Tooltip v-if="item.status === 'error' && item.error" :content="item.error">
+                  <Badge variant="destructive" class="gap-1">
+                    <X class="h-3 w-3" />
+                    失败
+                  </Badge>
+                </Tooltip>
+                <Badge v-else :variant="getUploadStatusVariant(item.status)" class="gap-1">
+                  <Loader2 v-if="item.status === 'uploading'" class="h-3 w-3 animate-spin" />
+                  <Check v-else-if="item.status === 'success'" class="h-3 w-3" />
+                  <span>{{ getUploadStatusLabel(item.status) }}</span>
+                </Badge>
+                <button type="button" class="ml-1 rounded-full p-0.5 hover:bg-muted-foreground/20" @click="handleRemoveUploadItem(index)" :disabled="uploadLoading">
+                  <X class="h-3 w-3" />
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="space-y-1">
+            <div class="flex items-center justify-between text-xs text-muted-foreground">
+              <span>进度 {{ uploadStats.processed }}/{{ uploadStats.total }}</span>
+              <span v-if="uploadStats.failed > 0">失败 {{ uploadStats.failed }}</span>
+            </div>
+            <Progress :modelValue="uploadPercent" />
+          </div>
         </div>
       </div>
       <div class="flex justify-end gap-2">
-        <Button variant="outline" @click="showUploadDialog = false">取消</Button>
-        <Button @click="handleUpload" :disabled="uploadLoading || !uploadFile">
+        <Button variant="outline" @click="handleCloseUploadDialog" :disabled="uploadLoading">取消</Button>
+        <Button @click="handleUpload" :disabled="uploadLoading || !hasPendingUploads">
           <Loader2 v-if="uploadLoading" class="mr-2 h-4 w-4 animate-spin" />
           上传
         </Button>
