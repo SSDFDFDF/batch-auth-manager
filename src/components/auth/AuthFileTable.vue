@@ -707,7 +707,7 @@ watch(authFiles, (files) => {
           <Search class="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             v-model="searchText"
-            placeholder="搜索文件..."
+            placeholder="搜索文件/账号/错误..."
             class="pl-8"
           />
         </div>

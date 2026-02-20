@@ -48,12 +48,22 @@ export function useAuthFileFilters(files: Ref<AuthFile[]>) {
 
     // 文本搜索
     if (searchText.value) {
-      const search = searchText.value.toLowerCase()
-      data = data.filter((file: AuthFile) =>
-        file.name.toLowerCase().includes(search) ||
-        (file.email && file.email.toLowerCase().includes(search)) ||
-        (file.account && file.account.toLowerCase().includes(search))
-      )
+      const searchTokens = searchText.value
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(Boolean)
+      data = data.filter((file: AuthFile) => {
+        const combined = [
+          file.name,
+          file.email,
+          file.account,
+          file.status_message,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+        return searchTokens.every(token => combined.includes(token))
+      })
     }
 
     // 类型筛选
