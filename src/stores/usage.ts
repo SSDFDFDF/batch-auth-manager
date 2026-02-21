@@ -6,11 +6,49 @@ import { collectUsageDetails, type UsageDetail } from '../utils/availability'
 const CACHE_TTL = 30_000
 const POLL_INTERVAL = 60_000
 const MAX_RETRY_BACKOFF = 30_000
+const STORAGE_KEY = 'usage-cache'
+const STORAGE_VERSION = 1
+
+type StoredUsage = {
+  version: number
+  usage: StatisticsSnapshot | null
+  lastFetched: number
+}
+
+function loadFromStorage(): { usage: StatisticsSnapshot | null; lastFetched: number } {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return { usage: null, lastFetched: 0 }
+    const parsed = JSON.parse(raw) as StoredUsage
+    if (!parsed || parsed.version !== STORAGE_VERSION) return { usage: null, lastFetched: 0 }
+    if (!parsed.usage || typeof parsed.lastFetched !== 'number') {
+      return { usage: null, lastFetched: 0 }
+    }
+    return { usage: parsed.usage, lastFetched: parsed.lastFetched }
+  } catch (error) {
+    console.warn('Failed to load usage cache from localStorage:', error)
+    return { usage: null, lastFetched: 0 }
+  }
+}
+
+function saveToStorage(usage: StatisticsSnapshot | null, lastFetched: number) {
+  try {
+    if (!usage) {
+      localStorage.removeItem(STORAGE_KEY)
+      return
+    }
+    const payload: StoredUsage = { version: STORAGE_VERSION, usage, lastFetched }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
+  } catch (error) {
+    console.warn('Failed to save usage cache to localStorage:', error)
+  }
+}
 
 export const useUsageStore = defineStore('usage', () => {
+  const stored = loadFromStorage()
   const loading = ref(false)
-  const usageData = ref<StatisticsSnapshot | null>(null)
-  const lastFetched = ref<number>(0)
+  const usageData = ref<StatisticsSnapshot | null>(stored.usage)
+  const lastFetched = ref<number>(stored.lastFetched)
   const fetchError = ref<string | null>(null)
   let isFetching = false
   let pollTimer: ReturnType<typeof setInterval> | null = null
@@ -33,6 +71,7 @@ export const useUsageStore = defineStore('usage', () => {
       const response = await usageApi.getUsage()
       usageData.value = response.usage
       lastFetched.value = Date.now()
+      saveToStorage(usageData.value, lastFetched.value)
       consecutiveFailures = 0
     } catch (error: any) {
       consecutiveFailures++
@@ -78,6 +117,7 @@ export const useUsageStore = defineStore('usage', () => {
     fetchError.value = null
     isFetching = false
     consecutiveFailures = 0
+    saveToStorage(null, 0)
   }
 
   const globalStats = computed(() => {
@@ -123,6 +163,7 @@ export const useUsageStore = defineStore('usage', () => {
     loading,
     usageData,
     usageDetails,
+    lastFetched,
     fetchError,
     fetchUsage,
     startPolling,

@@ -40,6 +40,7 @@ import { formatResetTime } from '../../utils/quota'
 import { usePagination } from '../../composables/usePagination'
 import { useTableSelection } from '../../composables/useTableSelection'
 import { useUsageStore } from '../../stores/usage'
+import { useFileAttributes } from '../../composables/useFileAttributes'
 
 // UI Components
 import Button from '../ui/Button.vue'
@@ -59,6 +60,7 @@ import { Tooltip } from '../ui/tooltip'
 import BatchFieldEditor from '../BatchFieldEditor.vue'
 import QuotaDialog from '../QuotaDialog.vue'
 import AvailabilityMonitor from './AvailabilityMonitor.vue'
+import FileAttributeIcons from '../FileAttributeIcons.vue'
 
 // Stores
 const quotaStore = useQuotaStore()
@@ -115,8 +117,48 @@ const compareSortValues = (a: any, b: any) => {
   return sortCollator.compare(String(a), String(b))
 }
 
+const usageStore = useUsageStore()
+const usageDetails = computed(() => usageStore.usageDetails)
+const { attributesCache, setAttributesFromJson, clearCache: clearAttributesCache, pruneCache: pruneAttributesCache, preloadAttributes } = useFileAttributes()
+
+const attrField = ref('')
+
+const getCachedAttributes = (file: any) => {
+  return attributesCache.value[file.name]?.attributes || []
+}
+
+const hasAttr = (attrs: any[], label: string) => {
+  return attrs.some((attr: any) => attr.label === label)
+}
+
+const passesAttrFilters = (file: any) => {
+  if (!attrField.value) return true
+  const attrs = getCachedAttributes(file)
+  switch (attrField.value) {
+    case 'proxy_url':
+      return hasAttr(attrs, 'Proxy')
+    case 'prefix':
+      return hasAttr(attrs, 'Prefix')
+    case 'max_tokens':
+      return hasAttr(attrs, 'Max Tokens')
+    case 'api_base':
+      return hasAttr(attrs, 'API Base')
+    case 'model':
+      return hasAttr(attrs, 'Model')
+    case 'temperature':
+      return hasAttr(attrs, 'Temperature')
+    default:
+      return true
+  }
+}
+
+const cachedFilteredData = computed(() => {
+  const base = filteredData.value
+  return base.filter(passesAttrFilters)
+})
+
 const sortedData = computed(() => {
-  const data = filteredData.value.slice()
+  const data = cachedFilteredData.value.slice()
   if (!sortKey.value) return data
   const key = sortKey.value
   const dir = sortOrder.value === 'asc' ? 1 : -1
@@ -127,17 +169,37 @@ const sortedData = computed(() => {
   })
 })
 
+const cacheSummary = computed(() => {
+  const total = authFiles.value.length
+  const cached = Object.keys(attributesCache.value).length
+  return { cached, total }
+})
+
+const quotaCacheCount = computed(() => {
+  return Object.keys(quotaStore.quotaData || {}).length
+})
+
 // Shared composables
 const { currentPage, pageSize, pageSizeOptions, totalItems, totalPages, paginatedData } = usePagination(sortedData, {
   defaultPageSize: 30,
   pageSizeOptions: [30, 50, 100, 200],
-  resetWatchers: [searchText, filterType, filterStatus, filterUnavailable, sortKey, sortOrder]
+  resetWatchers: [searchText, filterType, filterStatus, filterUnavailable, sortKey, sortOrder, attrField]
 })
 
-const { selectedItems: selectedFiles, allSelected, isSelected, toggleSelection, toggleSelectAll, clearSelection } = useTableSelection(paginatedData)
+const emit = defineEmits<{
+  (e: 'stats', payload: { jsonCached: number; jsonTotal: number; quotaCached: number; usageFetchedAt: number | null }): void
+}>()
 
-const usageStore = useUsageStore()
-const usageDetails = computed(() => usageStore.usageDetails)
+watch([cacheSummary, quotaCacheCount, () => usageStore.lastFetched], () => {
+  emit('stats', {
+    jsonCached: cacheSummary.value.cached,
+    jsonTotal: cacheSummary.value.total,
+    quotaCached: quotaCacheCount.value,
+    usageFetchedAt: usageStore.lastFetched || null
+  })
+}, { immediate: true })
+
+const { selectedItems: selectedFiles, allSelected, isSelected, toggleSelection, toggleSelectAll, clearSelection } = useTableSelection(paginatedData)
 
 // Local State
 const batchLoading = ref(false)
@@ -451,6 +513,7 @@ const handleDelete = async (row: any) => {
   try {
     await deleteFileApi(row.name)
     quotaStore.clearQuota(quotaKey.file(row.name))
+    clearAttributesCache(row.name)
     await loadAuthFiles()
     notificationStore.success('删除成功')
   } catch (error: any) {
@@ -482,6 +545,7 @@ const handleEdit = async (row: any) => {
     const text = await blob.text()
     try {
       const json = JSON.parse(text)
+      setAttributesFromJson(row.name, json, row)
       editContent.value = JSON.stringify(json, null, 2)
     } catch {
       editContent.value = text
@@ -508,6 +572,7 @@ const handleSaveEdit = async () => {
     const file = new File([blob], editingFile.value.name, { type: 'application/json' })
     await authFilesApi.upload(file)
     quotaStore.clearQuota(quotaKey.file(editingFile.value.name))
+    clearAttributesCache(editingFile.value.name)
     showEditDialog.value = false
     editingFile.value = null
     editContent.value = ''
@@ -674,6 +739,7 @@ let refreshDebounceTimer: ReturnType<typeof setTimeout> | null = null
 watch(authFiles, (files) => {
   if (files.length > 0) {
     quotaStore.pruneStaleEntries(files.map((f: any) => f.name))
+    pruneAttributesCache(files.map((f: any) => f.name))
     if (refreshDebounceTimer) clearTimeout(refreshDebounceTimer)
     refreshDebounceTimer = setTimeout(() => {
       loadExpiredQuota(files)
@@ -696,6 +762,12 @@ watch(authFiles, (files) => {
     }
   }
 })
+
+watch(paginatedData, (pageItems) => {
+  if (pageItems.length > 0) {
+    preloadAttributes(pageItems)
+  }
+}, { immediate: true })
 </script>
 
 <template>
@@ -737,11 +809,23 @@ watch(authFiles, (files) => {
           <option value="true">不可用</option>
           <option value="false">可用</option>
         </select>
+        <select
+          v-model="attrField"
+          class="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          <option value="">属性字段</option>
+          <option value="proxy_url">Proxy</option>
+          <option value="prefix">Prefix</option>
+          <option value="max_tokens">Max Tokens</option>
+          <option value="api_base">API Base</option>
+          <option value="model">Model</option>
+          <option value="temperature">Temperature</option>
+        </select>
         <Button variant="outline" size="icon" @click="loadAuthFiles" :disabled="loading" title="刷新列表">
           <RefreshCw :class="cn('h-4 w-4', loading && 'animate-spin')" />
         </Button>
       </div>
-      <div class="flex w-full sm:w-auto items-center justify-end gap-2">
+      <div class="flex w-full sm:w-auto items-center justify-end gap-3">
         <Button @click="showUploadDialog = true">
           <Upload class="mr-2 h-4 w-4" />
           上传文件
@@ -849,7 +933,7 @@ watch(authFiles, (files) => {
                 <Loader2 class="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
              </TableCell>
           </TableRow>
-          <TableRow v-else-if="filteredData.length === 0">
+          <TableRow v-else-if="cachedFilteredData.length === 0">
              <TableCell colspan="7" class="h-24 text-center text-muted-foreground">
                 没有找到文件。
              </TableCell>
@@ -879,7 +963,7 @@ watch(authFiles, (files) => {
                     {{ formatPlanTypeLabel(resolvePlanType(file) || '') }}
                   </Badge>
                   <!-- 属性图标 -->
-                  <!-- <FileAttributeIcons :file-name="file.name" :max-display="3" /> --> <!-- 暂时关闭：每个配置需要独立请求 -->
+                  <FileAttributeIcons :file-name="file.name" :file-meta="file" :max-display="3" />
                 </div>
                 <!-- 第二行：可用性监控 -->
                 <AvailabilityMonitor :points="getAvailabilityPoints(file)" :compact="true" :show-stats="true" />

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { Tooltip } from './ui/tooltip'
 import {
   Waypoints,
@@ -8,6 +8,8 @@ import {
   Server,
   Bot,
   Thermometer,
+  User,
+  UserCircle,
   Loader2
 } from 'lucide-vue-next'
 import type { FileAttribute } from '../composables/useFileAttributes'
@@ -15,6 +17,7 @@ import { useFileAttributes } from '../composables/useFileAttributes'
 
 interface Props {
   fileName: string
+  fileMeta?: Record<string, any>
   maxDisplay?: number  // 最多显示多少个图标
 }
 
@@ -22,9 +25,8 @@ const props = withDefaults(defineProps<Props>(), {
   maxDisplay: 3
 })
 
-const { getFileAttributes } = useFileAttributes()
+const { getFileAttributes, loading } = useFileAttributes()
 const attributes = ref<FileAttribute[]>([])
-const isLoading = ref(false)
 
 // 图标组件映射
 const iconComponents: Record<string, any> = {
@@ -33,17 +35,20 @@ const iconComponents: Record<string, any> = {
   Coins,
   Server,
   Bot,
-  Thermometer
+  Thermometer,
+  User,
+  UserCircle
 }
 
 const loadAttributes = async () => {
-  isLoading.value = true
-  try {
-    attributes.value = await getFileAttributes(props.fileName)
-  } finally {
-    isLoading.value = false
-  }
+  attributes.value = await getFileAttributes(props.fileName, props.fileMeta)
 }
+
+const versionKey = computed(() => {
+  const meta = props.fileMeta
+  if (!meta) return ''
+  return String(meta.modtime ?? meta.updated_at ?? meta.last_refresh ?? meta.created_at ?? '')
+})
 
 // 显示的属性（限制数量）
 const displayedAttributes = computed(() => {
@@ -62,21 +67,16 @@ const allAttributesSummary = computed(() => {
     .join('\n')
 })
 
-onMounted(() => {
+watch([() => props.fileName, () => versionKey.value], () => {
   loadAttributes()
-})
-
-// 监听文件名变化
-watch(() => props.fileName, () => {
-  loadAttributes()
-})
+}, { immediate: true })
 </script>
 
 <template>
   <div class="flex items-center gap-1">
     <!-- 加载状态 -->
     <Loader2
-      v-if="isLoading"
+      v-if="loading[props.fileName]"
       class="h-3.5 w-3.5 animate-spin text-muted-foreground"
     />
 

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { request } from '../lib/request'
-import { configApi } from '../api/authFiles'
+import { configApi } from '../api/config'
 import { useConfigStore } from './config'
 import { useUsageStore } from './usage'
 import { useQuotaStore } from './quota'

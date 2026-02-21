@@ -16,7 +16,8 @@
     "pinia": "^2.1.0",
     "tailwind-merge": "^3.4.0",
     "vue": "^3.4.0",
-    "vue-echarts": "^8.0.1"
+    "vue-echarts": "^8.0.1",
+    "yaml": "^2.8.2"
   },
   "devDependencies": {
     "@types/node": "^25.2.2",

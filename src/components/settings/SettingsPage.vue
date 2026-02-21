@@ -4,7 +4,7 @@ import axios from 'axios'
 import { RefreshCw, Loader2, Plus, Trash2, Eye, EyeOff, X } from 'lucide-vue-next'
 import { useNotificationStore } from '../../stores/notification'
 import { useAuthStore } from '../../stores/auth'
-import { configApi } from '../../api/authFiles'
+import { configApi } from '../../api/config'
 import { apiKeysApi } from '../../api/apiKeys'
 import { oauthModelsApi, type OAuthModelAliasEntry } from '../../api/oauthModels'
 
