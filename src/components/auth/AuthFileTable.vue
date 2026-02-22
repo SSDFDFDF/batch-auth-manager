@@ -134,19 +134,41 @@ const hasAttr = (attrs: any[], label: string) => {
 const passesAttrFilters = (file: any) => {
   if (!attrField.value) return true
   const attrs = getCachedAttributes(file)
+  const isMissing = attrField.value.startsWith('missing:')
+  const field = isMissing ? attrField.value.slice('missing:'.length) : attrField.value
+  const matches = (label: string) => {
+    const present = hasAttr(attrs, label)
+    return isMissing ? !present : present
+  }
   switch (attrField.value) {
     case 'proxy_url':
-      return hasAttr(attrs, 'Proxy')
+      return matches('Proxy')
     case 'prefix':
-      return hasAttr(attrs, 'Prefix')
+      return matches('Prefix')
     case 'max_tokens':
-      return hasAttr(attrs, 'Max Tokens')
+      return matches('Max Tokens')
     case 'api_base':
-      return hasAttr(attrs, 'API Base')
+      return matches('API Base')
     case 'model':
-      return hasAttr(attrs, 'Model')
+      return matches('Model')
     case 'temperature':
-      return hasAttr(attrs, 'Temperature')
+      return matches('Temperature')
+    case 'user_agent':
+      return matches('User Agent')
+    case 'missing:proxy_url':
+      return matches('Proxy')
+    case 'missing:prefix':
+      return matches('Prefix')
+    case 'missing:max_tokens':
+      return matches('Max Tokens')
+    case 'missing:api_base':
+      return matches('API Base')
+    case 'missing:model':
+      return matches('Model')
+    case 'missing:temperature':
+      return matches('Temperature')
+    case 'missing:user_agent':
+      return matches('User Agent')
     default:
       return true
   }
@@ -814,12 +836,20 @@ watch(paginatedData, (pageItems) => {
           class="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           <option value="">属性字段</option>
-          <option value="proxy_url">Proxy</option>
-          <option value="prefix">Prefix</option>
-          <option value="max_tokens">Max Tokens</option>
-          <option value="api_base">API Base</option>
-          <option value="model">Model</option>
-          <option value="temperature">Temperature</option>
+          <option value="proxy_url">Proxy (有)</option>
+          <option value="missing:proxy_url">Proxy (无)</option>
+          <option value="prefix">Prefix (有)</option>
+          <option value="missing:prefix">Prefix (无)</option>
+          <option value="max_tokens">Max Tokens (有)</option>
+          <option value="missing:max_tokens">Max Tokens (无)</option>
+          <option value="api_base">API Base (有)</option>
+          <option value="missing:api_base">API Base (无)</option>
+          <option value="model">Model (有)</option>
+          <option value="missing:model">Model (无)</option>
+          <option value="temperature">Temperature (有)</option>
+          <option value="missing:temperature">Temperature (无)</option>
+          <option value="user_agent">User Agent (有)</option>
+          <option value="missing:user_agent">User Agent (无)</option>
         </select>
         <Button variant="outline" size="icon" @click="loadAuthFiles" :disabled="loading" title="刷新列表">
           <RefreshCw :class="cn('h-4 w-4', loading && 'animate-spin')" />
