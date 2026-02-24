@@ -19,7 +19,8 @@ import {
   Info,
   ArrowUp,
   ArrowDown,
-  ArrowUpDown
+  ArrowUpDown,
+  Timer
 } from 'lucide-vue-next'
 import { authFilesApi } from '../../api/authFiles'
 import { useQuotaStore, quotaKey } from '../../stores/quota'
@@ -226,6 +227,7 @@ const { selectedItems: selectedFiles, allSelected, isSelected, toggleSelection, 
 // Local State
 const batchLoading = ref(false)
 const refreshAllQuotaLoading = ref(false)
+const autoRefreshQuota = ref(true)
 const uploadLoading = ref(false)
 const modelsLoading = ref(false)
 const editLoading = ref(false)
@@ -752,36 +754,62 @@ let quotaPollTimer: ReturnType<typeof setInterval> | null = null
 
 onUnmounted(() => {
   usageStore.stopPolling()
-  if (refreshDebounceTimer) clearTimeout(refreshDebounceTimer)
-  if (quotaPollTimer) clearInterval(quotaPollTimer)
+  stopAutoRefreshQuota()
 })
 
 // Auto-refresh expired quota when files are loaded (debounced)
 let refreshDebounceTimer: ReturnType<typeof setTimeout> | null = null
+const stopAutoRefreshQuota = () => {
+  if (refreshDebounceTimer) {
+    clearTimeout(refreshDebounceTimer)
+    refreshDebounceTimer = null
+  }
+  if (quotaPollTimer) {
+    clearInterval(quotaPollTimer)
+    quotaPollTimer = null
+  }
+}
+
+const scheduleAutoRefreshQuota = (files: any[]) => {
+  if (refreshDebounceTimer) clearTimeout(refreshDebounceTimer)
+  refreshDebounceTimer = setTimeout(() => {
+    loadExpiredQuota(files)
+  }, 500)
+
+  // Start periodic quota refresh (every 5 min)
+  if (!quotaPollTimer) {
+    quotaPollTimer = setInterval(() => {
+      loadExpiredQuota(authFiles.value)
+    }, 5 * 60 * 1000)
+  }
+}
+
 watch(authFiles, (files) => {
   if (files.length > 0) {
     quotaStore.pruneStaleEntries(files.map((f: any) => f.name))
     pruneAttributesCache(files.map((f: any) => f.name))
-    if (refreshDebounceTimer) clearTimeout(refreshDebounceTimer)
-    refreshDebounceTimer = setTimeout(() => {
-      loadExpiredQuota(files)
-    }, 500)
+  }
 
-    // Start periodic quota refresh (every 5 min)
-    if (!quotaPollTimer) {
-      quotaPollTimer = setInterval(() => {
-        loadExpiredQuota(authFiles.value)
-      }, 5 * 60 * 1000)
-    }
+  if (!autoRefreshQuota.value) {
+    stopAutoRefreshQuota()
+    return
+  }
+
+  if (files.length > 0) {
+    scheduleAutoRefreshQuota(files)
   } else {
-    if (refreshDebounceTimer) {
-      clearTimeout(refreshDebounceTimer)
-      refreshDebounceTimer = null
-    }
-    if (quotaPollTimer) {
-      clearInterval(quotaPollTimer)
-      quotaPollTimer = null
-    }
+    stopAutoRefreshQuota()
+  }
+})
+
+watch(autoRefreshQuota, (enabled) => {
+  if (!enabled) {
+    stopAutoRefreshQuota()
+    return
+  }
+
+  if (authFiles.value.length > 0) {
+    scheduleAutoRefreshQuota(authFiles.value)
   }
 })
 
@@ -856,6 +884,11 @@ watch(paginatedData, (pageItems) => {
         </Button>
       </div>
       <div class="flex w-full sm:w-auto items-center justify-end gap-3">
+        <label class="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none whitespace-nowrap">
+          <input type="checkbox" v-model="autoRefreshQuota" class="rounded border-border" />
+          <Timer class="h-3.5 w-3.5" />
+          自动刷新额度
+        </label>
         <Button @click="showUploadDialog = true">
           <Upload class="mr-2 h-4 w-4" />
           上传文件
