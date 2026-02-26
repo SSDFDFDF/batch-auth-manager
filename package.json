@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:single": "vite build --mode singlefile",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -27,6 +28,7 @@
     "tailwindcss": "^3.4.17",
     "typescript": "^5.9.3",
     "vite": "^5.0.0",
+    "vite-plugin-singlefile": "^2.3.0",
     "vue-tsc": "^3.2.4"
   }
 }
