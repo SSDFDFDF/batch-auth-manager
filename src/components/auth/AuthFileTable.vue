@@ -1071,7 +1071,7 @@ watch(paginatedData, (pageItems) => {
                     : 'text-[10px] px-1.5 py-0 h-4 font-normal text-muted-foreground'"
                 >
                   {{ formatUpdatedAt(getCacheInfo(file)?.updatedAt || null) }}
-                  <template v-if="getCacheInfo(file)?.expired"> 待更新</template>
+                  <template v-if="getCacheInfo(file)?.expired"> ↺</template>
                 </Badge>
               </div>
             </TableCell>

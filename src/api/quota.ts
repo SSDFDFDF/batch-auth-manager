@@ -288,6 +288,30 @@ export const antigravityQuota = {
       return base || name
     }
 
+    const isClaudeGroup = (entry: any, id: string, displayName: string) => {
+      const lowerName = displayName.toLowerCase()
+      const lowerId = id.toLowerCase()
+      if (lowerId.startsWith('claude-') || lowerName.startsWith('claude')) return true
+      if (lowerId.startsWith('gpt-oss-') || lowerName.includes('gpt-oss')) return true
+      if (entry?.modelProvider === 'MODEL_PROVIDER_ANTHROPIC') return true
+      return false
+    }
+
+    const resolveGroupName = (entry: any, id: string, displayName: string) => {
+      if (isClaudeGroup(entry, id, displayName)) return 'Claude'
+      return normalizeGroupName(displayName)
+    }
+
+    const isExplicitlyHidden = (displayName: string, id: string) => {
+      const normalized = normalizeGroupName(displayName).toLowerCase()
+      if (normalized === 'gemini 2.5 flash lite') return true
+      if (id.toLowerCase() === 'gemini-2.5-flash-lite') return true
+      if (normalized === 'gemini 2.5 flash') return true
+      if (id.toLowerCase() === 'gemini-2.5-flash') return true
+      if (id.toLowerCase() === 'gemini-2.5-flash-thinking') return true
+      return false
+    }
+
     const resolveResetTime = (entries: Array<{ resetTime?: string }>) => {
       let chosen: string | undefined
       let minTs: number | null = null
@@ -346,7 +370,7 @@ export const antigravityQuota = {
 
       const normalized = Math.max(0, Math.min(1, remainingFraction))
       const resetTime = quotaInfo.resetTime || quotaInfo.reset_time
-      const groupName = normalizeGroupName(displayName)
+      const groupName = resolveGroupName(entry, id, displayName)
       const groupKey = groupName.toLowerCase()
 
       const target = groupMap.get(groupKey)
@@ -355,7 +379,7 @@ export const antigravityQuota = {
         displayName,
         remainingFraction: normalized,
         resetTime,
-        hidden: hiddenModelIds.has(id)
+        hidden: hiddenModelIds.has(id) || isExplicitlyHidden(displayName, id)
       }
 
       if (target) {
