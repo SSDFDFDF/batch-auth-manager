@@ -123,6 +123,7 @@ const usageDetails = computed(() => usageStore.usageDetails)
 const { attributesCache, setAttributesFromJson, clearCache: clearAttributesCache, pruneCache: pruneAttributesCache, preloadAttributes } = useFileAttributes()
 
 const attrField = ref('')
+const quotaQueryFilter = ref('')
 
 const getCachedAttributes = (file: any) => {
   return attributesCache.value[file.name]?.attributes || []
@@ -175,9 +176,18 @@ const passesAttrFilters = (file: any) => {
   }
 }
 
+const passesQuotaQueryFilters = (file: any) => {
+  if (!quotaQueryFilter.value) return true
+  const quotaStatus = quotaStore.getQuotaStatus(quotaKey.file(file.name))?.status
+  if (quotaQueryFilter.value === 'error') {
+    return supportsQuota(file.type) && quotaStatus === 'error'
+  }
+  return true
+}
+
 const cachedFilteredData = computed(() => {
   const base = filteredData.value
-  return base.filter(passesAttrFilters)
+  return base.filter(passesAttrFilters).filter(passesQuotaQueryFilters)
 })
 
 const sortedData = computed(() => {
@@ -206,7 +216,7 @@ const quotaCacheCount = computed(() => {
 const { currentPage, pageSize, pageSizeOptions, totalItems, totalPages, paginatedData } = usePagination(sortedData, {
   defaultPageSize: 30,
   pageSizeOptions: [30, 50, 100, 200],
-  resetWatchers: [searchText, filterType, filterStatus, filterUnavailable, sortKey, sortOrder, attrField]
+  resetWatchers: [searchText, filterType, filterStatus, filterUnavailable, sortKey, sortOrder, attrField, quotaQueryFilter]
 })
 
 const emit = defineEmits<{
@@ -858,6 +868,13 @@ watch(paginatedData, (pageItems) => {
           <option value="">可用性</option>
           <option value="true">不可用</option>
           <option value="false">可用</option>
+        </select>
+        <select
+          v-model="quotaQueryFilter"
+          class="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          <option value="">额度查询</option>
+          <option value="error">查询失败</option>
         </select>
         <select
           v-model="attrField"
