@@ -122,65 +122,65 @@ const usageStore = useUsageStore()
 const usageDetails = computed(() => usageStore.usageDetails)
 const { attributesCache, setAttributesFromJson, clearCache: clearAttributesCache, pruneCache: pruneAttributesCache, preloadAttributes } = useFileAttributes()
 
-const attrField = ref('')
+const attrKeyword = ref('')
 const quotaQueryFilter = ref('')
 
 const getCachedAttributes = (file: any) => {
   return attributesCache.value[file.name]?.attributes || []
 }
 
-const hasAttr = (attrs: any[], label: string) => {
-  return attrs.some((attr: any) => attr.label === label)
+const getInlineAttributes = (file: any) => {
+  const attrs: Array<{ label: string; value: string }> = []
+  const pushAttr = (label: string, value: unknown) => {
+    if (value === null || value === undefined) return
+    const text = String(value).trim()
+    if (!text) return
+    attrs.push({ label, value: text })
+  }
+
+  pushAttr('Proxy', file.proxy_url)
+  pushAttr('Prefix', file.prefix)
+  pushAttr('Max Tokens', file.max_tokens)
+  pushAttr('API Base', file.api_base || file.api_endpoint)
+  pushAttr('Model', file.model)
+  pushAttr('Agent', file.agent)
+  pushAttr('User Agent', file.user_agent || file.userAgent)
+  if (file.temperature !== undefined) {
+    pushAttr('Temperature', file.temperature)
+  }
+
+  return attrs
 }
 
 const passesAttrFilters = (file: any) => {
-  if (!attrField.value) return true
-  const attrs = getCachedAttributes(file)
-  const isMissing = attrField.value.startsWith('missing:')
-  const field = isMissing ? attrField.value.slice('missing:'.length) : attrField.value
-  const matches = (label: string) => {
-    const present = hasAttr(attrs, label)
-    return isMissing ? !present : present
-  }
-  switch (attrField.value) {
-    case 'proxy_url':
-      return matches('Proxy')
-    case 'prefix':
-      return matches('Prefix')
-    case 'max_tokens':
-      return matches('Max Tokens')
-    case 'api_base':
-      return matches('API Base')
-    case 'model':
-      return matches('Model')
-    case 'temperature':
-      return matches('Temperature')
-    case 'user_agent':
-      return matches('User Agent')
-    case 'missing:proxy_url':
-      return matches('Proxy')
-    case 'missing:prefix':
-      return matches('Prefix')
-    case 'missing:max_tokens':
-      return matches('Max Tokens')
-    case 'missing:api_base':
-      return matches('API Base')
-    case 'missing:model':
-      return matches('Model')
-    case 'missing:temperature':
-      return matches('Temperature')
-    case 'missing:user_agent':
-      return matches('User Agent')
-    default:
-      return true
-  }
+  if (!attrKeyword.value.trim()) return true
+  const keywords = attrKeyword.value
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+  if (keywords.length === 0) return true
+
+  const cachedAttrs = getCachedAttributes(file)
+  const inlineAttrs = getInlineAttributes(file)
+  const searchable = [
+    ...cachedAttrs.map((attr: any) => `${attr.label} ${attr.value}`),
+    ...inlineAttrs.map(attr => `${attr.label} ${attr.value}`)
+  ]
+    .join(' ')
+    .toLowerCase()
+
+  return keywords.every(keyword => searchable.includes(keyword))
 }
 
 const passesQuotaQueryFilters = (file: any) => {
   if (!quotaQueryFilter.value) return true
   const quotaStatus = quotaStore.getQuotaStatus(quotaKey.file(file.name))?.status
+  const quotaSupported = supportsQuota(file.type)
   if (quotaQueryFilter.value === 'error') {
-    return supportsQuota(file.type) && quotaStatus === 'error'
+    return quotaSupported && quotaStatus === 'error'
+  }
+  if (quotaQueryFilter.value === 'unqueried') {
+    return quotaSupported && (!quotaStatus || quotaStatus === 'idle')
   }
   return true
 }
@@ -216,7 +216,7 @@ const quotaCacheCount = computed(() => {
 const { currentPage, pageSize, pageSizeOptions, totalItems, totalPages, paginatedData } = usePagination(sortedData, {
   defaultPageSize: 30,
   pageSizeOptions: [30, 50, 100, 200],
-  resetWatchers: [searchText, filterType, filterStatus, filterUnavailable, sortKey, sortOrder, attrField, quotaQueryFilter]
+  resetWatchers: [searchText, filterType, filterStatus, filterUnavailable, sortKey, sortOrder, attrKeyword, quotaQueryFilter]
 })
 
 const emit = defineEmits<{
@@ -843,6 +843,11 @@ watch(paginatedData, (pageItems) => {
             class="pl-8"
           />
         </div>
+        <Input
+          v-model="attrKeyword"
+          placeholder="属性关键词..."
+          class="w-full sm:w-44"
+        />
         <select
           v-model="filterType"
           class="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
@@ -874,27 +879,8 @@ watch(paginatedData, (pageItems) => {
           class="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           <option value="">额度查询</option>
+          <option value="unqueried">未查询过</option>
           <option value="error">查询失败</option>
-        </select>
-        <select
-          v-model="attrField"
-          class="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-        >
-          <option value="">属性字段</option>
-          <option value="proxy_url">Proxy (有)</option>
-          <option value="missing:proxy_url">Proxy (无)</option>
-          <option value="prefix">Prefix (有)</option>
-          <option value="missing:prefix">Prefix (无)</option>
-          <option value="max_tokens">Max Tokens (有)</option>
-          <option value="missing:max_tokens">Max Tokens (无)</option>
-          <option value="api_base">API Base (有)</option>
-          <option value="missing:api_base">API Base (无)</option>
-          <option value="model">Model (有)</option>
-          <option value="missing:model">Model (无)</option>
-          <option value="temperature">Temperature (有)</option>
-          <option value="missing:temperature">Temperature (无)</option>
-          <option value="user_agent">User Agent (有)</option>
-          <option value="missing:user_agent">User Agent (无)</option>
         </select>
         <Button variant="outline" size="icon" @click="loadAuthFiles" :disabled="loading" title="刷新列表">
           <RefreshCw :class="cn('h-4 w-4', loading && 'animate-spin')" />

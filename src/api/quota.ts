@@ -68,6 +68,7 @@ async function downloadAuthFileJson(fileName: string): Promise<any> {
 }
 
 const DEFAULT_ANTIGRAVITY_PROJECT_ID = 'bamboo-precept-lgxtn'
+const alphaSortCollator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' })
 
 /**
  * Resolve Antigravity project_id from auth file content
@@ -407,6 +408,8 @@ export const antigravityQuota = {
         hideInTable
       })
     }
+
+    groups.sort((a, b) => alphaSortCollator.compare(String(a?.name ?? ''), String(b?.name ?? '')))
 
     return { groups }
   }
