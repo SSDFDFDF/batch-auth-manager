@@ -9,6 +9,7 @@ import Dashboard from './components/dashboard/Dashboard.vue'
 import AiProvidersTable from './components/providers/AiProvidersTable.vue'
 import SettingsPage from './components/settings/SettingsPage.vue'
 import PayloadConfigTab from './components/settings/PayloadConfigTab.vue'
+import WebDavBackupPage from './components/backup/WebDavBackupPage.vue'
 import Button from './components/ui/Button.vue'
 import Badge from './components/ui/badge/Badge.vue'
 import Dialog from './components/ui/dialog/Dialog.vue'
@@ -17,7 +18,7 @@ import Label from './components/ui/Label.vue'
 import ToastContainer from './components/ui/toast/ToastContainer.vue'
 import ConfirmDialog from './components/ui/toast/ConfirmDialog.vue'
 import LogViewer from './components/logs/LogViewer.vue'
-import { Server, Loader2, LayoutDashboard, FileText, Settings, LogOut, ScrollText, Sliders, ShieldCheck, Filter } from 'lucide-vue-next'
+import { Server, Loader2, LayoutDashboard, FileText, Settings, LogOut, ScrollText, Sliders, ShieldCheck, Filter, CloudUpload } from 'lucide-vue-next'
 
 const notificationStore = useNotificationStore()
 
@@ -189,6 +190,14 @@ const handleDisconnect = async () => {
           <Filter class="w-4 h-4" />
           Payload 配置
         </button>
+        <button
+          @click="activeTab = 'webdav'"
+          class="flex items-center gap-2 px-4 py-2 border-b-2 text-sm font-medium transition-colors hover:text-primary"
+          :class="activeTab === 'webdav' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'"
+        >
+          <CloudUpload class="w-4 h-4" />
+          WebDAV 备份
+        </button>
       </div>
 
       <!-- Main Content -->
@@ -202,6 +211,7 @@ const handleDisconnect = async () => {
         <LogViewer v-if="activeTab === 'logs'" />
         <SettingsPage v-if="activeTab === 'settings'" />
         <PayloadConfigTab v-if="activeTab === 'payload'" />
+        <WebDavBackupPage v-if="activeTab === 'webdav'" />
       </div>
       
       <div v-else-if="authStore.restoring" class="flex h-[400px] flex-col items-center justify-center rounded-lg border border-dashed text-center animate-in fade-in-50">

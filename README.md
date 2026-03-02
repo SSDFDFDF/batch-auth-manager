@@ -13,6 +13,7 @@
 - ✅ **OAuth 登录与导入** - Codex/Anthropic/Antigravity/Gemini CLI/Kimi/Qwen；支持回调 URL 提交；Vertex 凭证导入
 - ✅ **仪表盘与日志** - 请求与 Token 统计、Top API/模型、错误趋势；日志搜索/自动刷新/下载/清空；错误日志与请求日志查看
 - ✅ **设置中心** - 全局代理、重试次数、路由策略、配额回退策略、日志开关、API Keys、OAuth 模型排除与别名
+- ✅ **WebDAV JSON 备份** - 无需后端支持，浏览器直接将认证文件打包为 JSON 上传到 WebDAV
 
 ## 技术栈
 
@@ -115,6 +116,14 @@ npm run preview
 - 使用统计、请求日志、写入日志文件、WebSocket 鉴权
 - API Keys 管理
 - OAuth 模型排除与别名映射
+
+### WebDAV 备份
+
+- 独立页面配置 WebDAV 地址、用户名、密码、目录与文件名前缀
+- 备份当前认证 JSON 文件（可选包含禁用文件）为单个快照 JSON
+- 备份前会检查远程目录，缺失时自动逐级创建
+- 浏览器直接 PUT 上传到 WebDAV（需目标服务允许跨域与 PUT）
+- 配置保存在本地浏览器（localStorage），无需新增后端接口
 
 ## 生产构建
 

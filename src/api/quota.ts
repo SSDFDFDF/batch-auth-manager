@@ -231,7 +231,7 @@ export const antigravityQuota = {
     const header = {
       'Authorization': 'Bearer $TOKEN$',
       'Content-Type': 'application/json',
-      'User-Agent': 'antigravity/1.11.5 windows/amd64'
+      'User-Agent': 'antigravity/1.19.5 windows/amd64'
     }
 
     const projectId = await resolveAntigravityProjectId(file.name)
