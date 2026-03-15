@@ -10,6 +10,7 @@ import {
   Thermometer,
   User,
   UserCircle,
+  ArrowUpDown,
   Loader2
 } from 'lucide-vue-next'
 import type { FileAttribute } from '../composables/useFileAttributes'
@@ -37,7 +38,8 @@ const iconComponents: Record<string, any> = {
   Bot,
   Thermometer,
   User,
-  UserCircle
+  UserCircle,
+  ArrowUpDown
 }
 
 const loadAttributes = async () => {

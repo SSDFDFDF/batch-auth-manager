@@ -104,6 +104,30 @@ const extractAttributes = (fileContent: any): FileAttribute[] => {
       color: 'text-indigo-600 dark:text-indigo-400'
     })
   }
+  if (fileContent.priority !== undefined && fileContent.priority !== null && fileContent.priority !== '') {
+    attributes.push({
+      icon: 'ArrowUpDown',
+      value: String(fileContent.priority),
+      label: 'Priority',
+      color: 'text-emerald-600 dark:text-emerald-400'
+    })
+  }
+  const excludedModels = fileContent.excluded_models ?? fileContent.excludedModels ?? fileContent['excluded-models']
+  if (Array.isArray(excludedModels) && excludedModels.length > 0) {
+    attributes.push({
+      icon: 'Bot',
+      value: excludedModels.join(', '),
+      label: 'Excluded Models',
+      color: 'text-rose-600 dark:text-rose-400'
+    })
+  } else if (excludedModels) {
+    attributes.push({
+      icon: 'Bot',
+      value: String(excludedModels),
+      label: 'Excluded Models',
+      color: 'text-rose-600 dark:text-rose-400'
+    })
+  }
 
   // agent / user_agent 属性
   if (fileContent.agent) {

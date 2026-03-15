@@ -84,10 +84,28 @@ const getPlaceholder = () => {
     return '例如: http://proxy.example.com:8080'
   } else if (selectedField.value === 'prefix') {
     return '例如: gemini/'
+  } else if (selectedField.value === 'priority') {
+    return '例如: 10'
+  } else if (selectedField.value === 'excluded_models') {
+    return '例如: ["gpt-5.3*","gpt-5.4*"]（建议选择 JSON 类型）'
   } else {
     return '输入字段值'
   }
 }
+
+watch(selectedField, (val) => {
+  if (val === 'excluded_models') {
+    valueType.value = 'json'
+    return
+  }
+  if (val === 'priority') {
+    valueType.value = 'number'
+    return
+  }
+  if (val === 'proxy_url' || val === 'prefix') {
+    valueType.value = 'string'
+  }
+})
 
 const handleRemoveFile = (name: string) => {
   emit('remove', name)
@@ -476,6 +494,8 @@ watch(() => props.files.length, (newLen) => {
           >
             <option value="proxy_url">proxy_url (代理地址)</option>
             <option value="prefix">prefix (模型前缀)</option>
+            <option value="priority">priority (优先级)</option>
+            <option value="excluded_models">excluded_models (排除模型)</option>
             <option value="custom">自定义字段...</option>
           </select>
         </div>

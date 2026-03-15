@@ -143,6 +143,15 @@ const getInlineAttributes = (file: any) => {
   pushAttr('Max Tokens', file.max_tokens)
   pushAttr('API Base', file.api_base || file.api_endpoint)
   pushAttr('Model', file.model)
+  const excludedModels = file.excluded_models ?? file.excludedModels ?? file['excluded-models']
+  if (Array.isArray(excludedModels)) {
+    pushAttr('Excluded Models', excludedModels.join(', '))
+  } else if (excludedModels) {
+    pushAttr('Excluded Models', excludedModels)
+  }
+  if (file.priority !== undefined && file.priority !== null && file.priority !== '') {
+    pushAttr('Priority', file.priority)
+  }
   pushAttr('Agent', file.agent)
   pushAttr('User Agent', file.user_agent || file.userAgent)
   if (file.temperature !== undefined) {
